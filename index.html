@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>44 Physiques - Weekly Check-In</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(180deg, #0a0a0a 0%, #000 100%);
+            color: #fff;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(180deg, #1a1a1a 0%, #000 100%);
+            border-bottom: 4px solid #ff0000;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3rem;
+            letter-spacing: 6px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        .logo span { color: #ff0000; }
+        .tagline {
+            font-size: 1.2rem;
+            font-style: italic;
+            color: #ff0000;
+            margin-top: 10px;
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 2px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .form-section {
+            background: linear-gradient(145deg, #111 0%, #0a0a0a 100%);
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            color: #ff0000;
+            border-bottom: 2px solid #ff0000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+        .form-group { margin-bottom: 18px; }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ff0000;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .logo { font-size: 2rem; }
+        }
+        .file-upload {
+            border: 2px dashed #444;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #151515;
+            margin-bottom: 15px;
+        }
+        .file-upload:hover {
+            border-color: #ff0000;
+            background: #1a1a1a;
+        }
+        .file-upload input[type="file"] { display: none; }
+        .file-upload-label {
+            display: block;
+            cursor: pointer;
+        }
+        .file-upload-label strong {
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+        .file-upload-label span {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .file-name {
+            margin-top: 10px;
+            color: #ff0000;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3);
+        }
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #ff1a1a 0%, #e60000 100%);
+            transform: translateY(-2px);
+        }
+        .submit-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        .success-message {
+            display: none;
+            background: linear-gradient(135deg, #0d3d0d 0%, #1a5a1a 100%);
+            border: 2px solid #2d8a2d;
+            color: #7fff7f;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .pose-upload { display: none; }
+        .weight-display {
+            font-size: 1.2rem;
+            color: #ff0000;
+            margin-top: 10px;
+            font-weight: 700;
+        }
+        .slider-container { margin-top: 10px; }
+        input[type="range"] {
+            width: 100%;
+            height: 10px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #ff0000;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 8px;
+        }
+        #energyValue { color: #ff0000; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">44 <span>PHYSIQUES</span></div>
+        <div class="tagline">"Chase the Physique"</div>
+    </div>
+    
+    <div class="container">
+        <div class="success-message" id="successMessage">
+            CHECK-IN SUBMITTED SUCCESSFULLY!<br>
+            <span style="font-size: 0.9rem; font-weight: normal;">Your coach will review your progress.</span>
+        </div>
+        
+        <form id="checkinForm">
+            <div class="form-section">
+                <h2 class="section-title">Athlete Information</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Client Name *</label>
+                        <input type="text" name="client_name" required placeholder="Your full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Week Ending *</label>
+                        <input type="date" name="week_ending" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Division</label>
+                    <select name="division" id="divisionSelect" onchange="updatePoses()">
+                        <option value="">Select your division...</option>
+                        <option value="bikini">Bikini</option>
+                        <option value="figure">Figure</option>
+                        <option value="wellness">Wellness</option>
+                        <option value="womens_physique">Women's Physique</option>
+                        <option value="womens_bodybuilding">Women's Bodybuilding</option>
+                        <option value="mens_physique">Men's Physique</option>
+                        <option value="classic_physique">Classic Physique</option>
+                        <option value="mens_bodybuilding">Men's Bodybuilding</option>
+                        <option value="fit_model">Fit Model</option>
+                        <option value="lifestyle">Lifestyle</option>
+                    </select>
+                </div>
+                <div id="poseInstructions" style="color: #ff0000; margin-top: 10px; display: none;"></div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Weight Tracking</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Previous Weight (lbs)</label>
+                        <input type="number" name="previous_weight" step="0.1" id="prevWeight" onchange="calcWeight()">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Weight (lbs)</label>
+                        <input type="number" name="current_weight" step="0.1" id="currWeight" onchange="calcWeight()">
+                    </div>
+                </div>
+                <div class="weight-display" id="weightChange"></div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Nutrition & Meals</h2>
+                <div class="form-group">
+                    <label>Meals on Track?</label>
+                    <select name="meals_on_track" id="mealsOnTrack" onchange="toggleMealNotes()">
+                        <option value="yes">Yes - All meals on point</option>
+                        <option value="no">No - Had some slip-ups</option>
+                    </select>
+                </div>
+                <div class="form-group" id="mealNotesSection" style="display: none;">
+                    <label>Why weren't meals on track? <span style="color: #888;">(be honest)</span></label>
+                    <textarea name="meals_off_track_notes" rows="2" placeholder="What happened? Social event, cravings, stress, travel?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Swaps / Substitutions</label>
+                    <input type="text" name="swaps" placeholder="Any meal swaps this week?">
+                </div>
+                <div class="form-group">
+                    <label>Hunger (between meals)</label>
+                    <input type="text" name="hunger" placeholder="How was your hunger?">
+                </div>
+                <div class="form-group">
+                    <label>Cravings</label>
+                    <input type="text" name="cravings" placeholder="Any cravings?">
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Training & Cardio</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Training Sessions</label>
+                        <input type="number" name="training_sessions" min="0" max="7" placeholder="0-7">
+                    </div>
+                    <div class="form-group">
+                        <label>Cardio Sessions</label>
+                        <input type="number" name="cardio_sessions" min="0" max="14" placeholder="0-14">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Performance Notes</label>
+                    <textarea name="performance_notes" rows="3" placeholder="Energy, strength, pumps, how did training feel?"></textarea>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Recovery & Energy</h2>
+                <div class="form-group">
+                    <label>Energy Level (1-10)</label>
+                    <div class="slider-container">
+                        <input type="range" name="energy" min="1" max="10" value="5" id="energySlider" oninput="document.getElementById('energyValue').textContent = this.value">
+                        <div class="slider-labels">
+                            <span>Low</span>
+                            <span id="energyValue">5</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sleep (hours/night)</label>
+                        <input type="text" name="sleep_hours" placeholder="e.g. 7.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Stress Level</label>
+                        <select name="stress">
+                            <option value="low">Low</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Digestion</h2>
+                <div class="form-group">
+                    <label>Bloating / Gas</label>
+                    <input type="text" name="bloating" placeholder="Any bloating or gas?">
+                </div>
+                <div class="form-group">
+                    <label>Regularity</label>
+                    <input type="text" name="regularity" placeholder="e.g. Daily, Every other day">
+                </div>
+                <div class="form-group">
+                    <label>Other Issues / Concerns</label>
+                    <textarea name="digestion_issues" rows="2" placeholder="Any other digestion issues?"></textarea>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Coach Notes</h2>
+                <div class="form-group">
+                    <label>Additional Notes for Your Coach</label>
+                    <textarea name="coach_notes" rows="4" placeholder="Questions, concerns, wins, challenges, anything else?"></textarea>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Progress Photos</h2>
+                
+                <div class="form-group pose-upload" id="pose-front">
+                    <div class="file-upload">
+                        <label class="file-upload-label">
+                            <input type="file" name="photo_front" accept="image/*" onchange="showFile(this, 'front')">
+                            <strong>FRONT POSE</strong>
+                            <span>Click to upload photo</span>
+                        </label>
+                        <div class="file-name" id="front-name"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group pose-upload" id="pose-left">
+                    <div class="file-upload">
+                        <label class="file-upload-label">
+                            <input type="file" name="photo_left" accept="image/*" onchange="showFile(this, 'left')">
+                            <strong>LEFT SIDE POSE</strong>
+                            <span>Click to upload photo</span>
+                        </label>
+                        <div class="file-name" id="left-name"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group pose-upload" id="pose-right">
+                    <div class="file-upload">
+                        <label class="file-upload-label">
+                            <input type="file" name="photo_right" accept="image/*" onchange="showFile(this, 'right')">
+                            <strong>RIGHT SIDE POSE</strong>
+                            <span>Click to upload photo</span>
+                        </label>
+                        <div class="file-name" id="right-name"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group pose-upload" id="pose-back">
+                    <div class="file-upload">
+                        <label class="file-upload-label">
+                            <input type="file" name="photo_back" accept="image/*" onchange="showFile(this, 'back')">
+                            <strong>BACK / REAR POSE</strong>
+                            <span>Click to upload photo</span>
+                        </label>
+                        <div class="file-name" id="back-name"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h2 class="section-title">Posing Video (Optional)</h2>
+                <div class="file-upload">
+                    <label class="file-upload-label">
+                        <input type="file" name="posing_video" accept="video/*" onchange="showFile(this, 'video')">
+                        <strong>UPLOAD POSING VIDEO</strong>
+                        <span>MP4, MOV, or similar formats</span>
+                    </label>
+                    <div class="file-name" id="video-name"></div>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">SUBMIT CHECK-IN</button>
+        </form>
+    </div>
+    
+    <script>
+        function calcWeight() {
+            const prev = parseFloat(document.getElementById('prevWeight').value) || 0;
+            const curr = parseFloat(document.getElementById('currWeight').value) || 0;
+            const change = curr - prev;
+            const sign = change >= 0 ? '+' : '';
+            document.getElementById('weightChange').textContent = change !== 0 ? `Change: ${sign}${change.toFixed(1)} lbs` : '';
+        }
+        
+        function toggleMealNotes() {
+            const select = document.getElementById('mealsOnTrack');
+            const notesSection = document.getElementById('mealNotesSection');
+            notesSection.style.display = select.value === 'no' ? 'block' : 'none';
+        }
+        
+        function showFile(input, name) {
+            const div = document.getElementById(name + '-name');
+            if (input.files && input.files[0]) {
+                div.textContent = 'Selected: ' + input.files[0].name;
+            }
+        }
+        
+        function updatePoses() {
+            const division = document.getElementById('divisionSelect').value;
+            const instructions = document.getElementById('poseInstructions');
+            
+            document.querySelectorAll('.pose-upload').forEach(el => el.style.display = 'none');
+            
+            if (!division) {
+                instructions.style.display = 'none';
+                return;
+            }
+            
+            const poseMap = {
+                'bikini': ['front', 'left', 'right', 'back'],
+                'figure': ['front', 'left', 'right', 'back'],
+                'wellness': ['front', 'left', 'right', 'back'],
+                'womens_physique': ['front', 'left', 'right', 'back'],
+                'womens_bodybuilding': ['front', 'left', 'right', 'back'],
+                'mens_physique': ['front', 'left', 'right'],
+                'classic_physique': ['front', 'left', 'right', 'back'],
+                'mens_bodybuilding': ['front', 'left', 'right', 'back'],
+                'fit_model': ['front', 'back'],
+                'lifestyle': ['front', 'left', 'right', 'back']
+            };
+            
+            const poses = poseMap[division];
+            if (poses) {
+                instructions.textContent = `Upload ${poses.length} poses: ${poses.join(', ').toUpperCase()}`;
+                instructions.style.display = 'block';
+                poses.forEach(p => {
+                    const el = document.getElementById('pose-' + p);
+                    if (el) el.style.display = 'block';
+                });
+            }
+        }
+        
+        document.getElementById('checkinForm').onsubmit = function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'SUBMITTING...';
+            
+            fetch('/submit-checkin', {
+                method: 'POST',
+                body: new FormData(this)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('successMessage').style.display = 'block';
+                    this.reset();
+                    document.querySelectorAll('.file-name').forEach(el => el.textContent = '');
+                    document.getElementById('weightChange').textContent = '';
+                    document.getElementById('poseInstructions').style.display = 'none';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    alert('Error: ' + (data.error || 'Failed'));
+                }
+            })
+            .catch(err => {
+                alert('Error: ' + err);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = 'SUBMIT CHECK-IN';
+            });
+        };
+    </script>
+</body>
+</html>
