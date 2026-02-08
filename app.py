@@ -14,6 +14,9 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 import psycopg2
 from urllib.parse import urlparse
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+import base64
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '44physiques_secret_key_2026')
@@ -136,6 +139,103 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def send_checkin_email(checkin_data, photos, video_path):
+    """Send email notification to David when athlete submits check-in"""
+    try:
+        sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
+        coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
+        
+        if not sendgrid_api_key:
+            print("SendGrid API key not configured - skipping email")
+            return
+        
+        # Build email content
+        subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #111; border: 2px solid #791619; border-radius: 12px; padding: 30px;">
+                <h1 style="color: #791619; text-align: center; margin-bottom: 30px;">44 PHYSIQUES</h1>
+                <h2 style="color: #fff; border-bottom: 2px solid #791619; padding-bottom: 10px;">New Athlete Check-in</h2>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Athlete Information</h3>
+                    <p><strong>Name:</strong> {checkin_data['athlete_name']}</p>
+                    <p><strong>Date:</strong> {checkin_data['checkin_date']}</p>
+                    <p><strong>Division:</strong> {checkin_data.get('division', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Body Stats</h3>
+                    <p><strong>Weight:</strong> {checkin_data.get('weight', 'N/A')} lbs</p>
+                    <p><strong>Waist:</strong> {checkin_data.get('waist', 'N/A')}"</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Nutrition & Training</h3>
+                    <p><strong>Meal Compliance:</strong> {checkin_data.get('meals_compliant', 'N/A')}%</p>
+                    <p><strong>Water Intake:</strong> {checkin_data.get('water_intake', 'N/A')} gallons</p>
+                    <p><strong>Hunger Level:</strong> {checkin_data.get('hunger', 'N/A')}/10</p>
+                    <p><strong>Weight Workouts:</strong> {checkin_data.get('weight_workouts', '0')}</p>
+                    <p><strong>Cardio Sessions:</strong> {checkin_data.get('cardio_sessions', '0')}</p>
+                    <p><strong>Strength Trend:</strong> {checkin_data.get('strength_trend', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Recovery</h3>
+                    <p><strong>Sleep:</strong> {checkin_data.get('sleep_hours', 'N/A')} hours ({checkin_data.get('sleep_quality', 'N/A')})</p>
+                    <p><strong>Energy Level:</strong> {checkin_data.get('energy', 'N/A')}/10</p>
+                    <p><strong>Stress Level:</strong> {checkin_data.get('stress_level', 'N/A')}</p>
+                    <p><strong>Mood:</strong> {checkin_data.get('mood', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Digestion</h3>
+                    <p><strong>Bloating/GI:</strong> {checkin_data.get('digestion', 'N/A')}</p>
+                    <p><strong>Regularity:</strong> {checkin_data.get('regularity', 'N/A')}</p>
+                </div>
+                
+                {f'<div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;"><h3 style="color: #791619; margin-bottom: 15px;">Off-Plan Foods</h3><p>{checkin_data.get("off_plan_foods", "None")}</p></div>' if checkin_data.get('off_plan_foods') else ''}
+                
+                {f'<div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;"><h3 style="color: #791619; margin-bottom: 15px;">Coach Notes</h3><p>{checkin_data.get("coach_notes", "None")}</p></div>' if checkin_data.get('coach_notes') else ''}
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Files</h3>
+                    <p><strong>Photos Uploaded:</strong> {len(photos)}</p>
+                    <p><strong>Video Uploaded:</strong> {'Yes' if video_path else 'No'}</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #791619; border-radius: 8px;">
+                    <a href="https://44physiques-checkin.onrender.com/dashboard" style="color: #fff; text-decoration: none; font-weight: bold; font-size: 1.1rem;">VIEW FULL CHECK-IN IN DASHBOARD</a>
+                </div>
+                
+                <p style="text-align: center; color: #888; margin-top: 30px; font-size: 0.9rem;">
+                    44 Physiques Coaching System<br>
+                    "Chase the Physique"
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        message = Mail(
+            from_email='notifications@44physiques.com',
+            to_emails=coach_email,
+            subject=subject,
+            html_content=html_content
+        )
+        
+        # Send email
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+        
+        print(f"Email sent to {coach_email}, status: {response.status_code}")
+        
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
+
 def sanitize_folder_name(name):
     """Convert name to safe folder name"""
     safe = re.sub(r'[^\w\s-]', '', name)
@@ -228,6 +328,32 @@ def submit_checkin():
             except:
                 pass
         
+        # Prepare check-in data for email
+        check_in_data = {
+            'athlete_name': client_name,
+            'checkin_date': checkin_date,
+            'division': request.form.get('division', ''),
+            'weight': request.form.get('weight', ''),
+            'waist': request.form.get('waist', ''),
+            'meals_compliant': meals,
+            'off_plan_foods': request.form.get('off_plan_foods', ''),
+            'water_intake': request.form.get('water_intake', ''),
+            'hunger': request.form.get('hunger', ''),
+            'cravings': request.form.get('cravings', ''),
+            'weight_workouts': request.form.get('weight_workouts', ''),
+            'cardio_sessions': request.form.get('cardio_sessions', ''),
+            'strength_trend': request.form.get('strength_trend', ''),
+            'training_notes': request.form.get('training_notes', ''),
+            'sleep_hours': request.form.get('sleep_hours', ''),
+            'sleep_quality': request.form.get('sleep_quality', ''),
+            'energy': request.form.get('energy', ''),
+            'stress_level': request.form.get('stress_level', ''),
+            'mood': request.form.get('mood', ''),
+            'digestion': request.form.get('digestion', ''),
+            'regularity': request.form.get('regularity', ''),
+            'coach_notes': request.form.get('coach_notes', '')
+        }
+        
         # Save to database
         conn = get_db_connection()
         cur = conn.cursor()
@@ -282,6 +408,9 @@ def submit_checkin():
         conn.commit()
         cur.close()
         conn.close()
+        
+        # Send email notification to coach
+        send_checkin_email(check_in_data, photos, video_path)
         
         return jsonify({
             'success': True,
