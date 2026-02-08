@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-44 Physiques Check-In Server
+44 Physiques Check-In Server with PostgreSQL
 Handles form submissions and file uploads for athlete check-ins
 """
 
@@ -9,16 +9,124 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory, render_template_string, redirect, session
+from flask import Flask, request, jsonify, send_from_directory, redirect, session
 from werkzeug.utils import secure_filename
 from functools import wraps
+import psycopg2
+from urllib.parse import urlparse
 
 app = Flask(__name__)
-app.secret_key = '44physiques_secret_key_2026'
+app.secret_key = os.environ.get('SECRET_KEY', '44physiques_secret_key_2026')
 
 # Simple auth for David
 AUTH_USERNAME = 'DavidFenty44'
 AUTH_PASSWORD = '44Physiques'
+
+# Database setup
+def get_db_connection():
+    """Get PostgreSQL connection from environment"""
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Render provides DATABASE_URL
+        result = urlparse(database_url)
+        conn = psycopg2.connect(
+            database=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
+    else:
+        # Local development - use SQLite fallback
+        import sqlite3
+        conn = sqlite3.connect('checkins.db')
+    return conn
+
+def init_db():
+    """Initialize database tables"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Check if PostgreSQL or SQLite
+    is_postgres = hasattr(conn, 'server_version')
+    
+    if is_postgres:
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS checkins (
+                id SERIAL PRIMARY KEY,
+                athlete_name VARCHAR(255) NOT NULL,
+                checkin_date DATE NOT NULL,
+                division VARCHAR(100),
+                weight VARCHAR(50),
+                waist VARCHAR(50),
+                meals_compliant VARCHAR(50),
+                off_plan_foods TEXT,
+                water_intake VARCHAR(50),
+                hunger VARCHAR(50),
+                cravings TEXT,
+                weight_workouts VARCHAR(50),
+                cardio_sessions VARCHAR(50),
+                strength_trend VARCHAR(100),
+                training_notes TEXT,
+                sleep_hours VARCHAR(50),
+                sleep_quality VARCHAR(50),
+                energy VARCHAR(50),
+                stress_level VARCHAR(50),
+                mood VARCHAR(100),
+                digestion VARCHAR(100),
+                regularity VARCHAR(100),
+                coach_notes TEXT,
+                photos JSONB DEFAULT '[]',
+                video_path TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) DEFAULT 'new'
+            )
+        ''')
+    else:
+        # SQLite version
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS checkins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                athlete_name TEXT NOT NULL,
+                checkin_date TEXT NOT NULL,
+                division TEXT,
+                weight TEXT,
+                waist TEXT,
+                meals_compliant TEXT,
+                off_plan_foods TEXT,
+                water_intake TEXT,
+                hunger TEXT,
+                cravings TEXT,
+                weight_workouts TEXT,
+                cardio_sessions TEXT,
+                strength_trend TEXT,
+                training_notes TEXT,
+                sleep_hours TEXT,
+                sleep_quality TEXT,
+                energy TEXT,
+                stress_level TEXT,
+                mood TEXT,
+                digestion TEXT,
+                regularity TEXT,
+                coach_notes TEXT,
+                photos TEXT DEFAULT '[]',
+                video_path TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'new'
+            )
+        ''')
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# Initialize DB on startup
+init_db()
+
+# File upload config
+UPLOAD_FOLDER = Path("uploads")
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
 
 def login_required(f):
     @wraps(f)
@@ -28,21 +136,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Configuration
-UPLOAD_FOLDER = Path("uploads")
-ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
-ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'webm'}
-MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB max file size
-
-app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
-UPLOAD_FOLDER.mkdir(exist_ok=True)
-
-
-def allowed_file(filename, allowed_extensions):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-
 def sanitize_folder_name(name):
     """Convert name to safe folder name"""
     safe = re.sub(r'[^\w\s-]', '', name)
@@ -50,164 +143,155 @@ def sanitize_folder_name(name):
     safe = re.sub(r'_+', '_', safe)
     return safe.lower().strip('_')
 
-
 def save_uploaded_file(file, athlete_folder, prefix):
-    """Save uploaded file and return path info"""
+    """Save uploaded file and return path"""
     if file and file.filename:
         ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{prefix}_{timestamp}.{ext}"
         filename = secure_filename(filename)
-        
         file_path = athlete_folder / filename
         file.save(file_path)
         return str(file_path)
     return None
-
 
 @app.route('/')
 def index():
     """Serve the check-in form"""
     return send_from_directory('.', 'index.html')
 
-
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    """Serve static files (logo, etc.)"""
     return send_from_directory('static', filename)
-
 
 @app.route('/submit-checkin', methods=['POST'])
 def submit_checkin():
     """Handle check-in form submission"""
     try:
-        # Get form data
         client_name = request.form.get('client_name', '').strip()
         checkin_date = request.form.get('checkin_date', '').strip()
         
         if not client_name or not checkin_date:
             return jsonify({'error': 'Client name and check-in date are required'}), 400
         
-        # Create athlete folder structure
+        # Create athlete folder
         athlete_folder_name = sanitize_folder_name(client_name)
         date_folder = checkin_date.replace('-', '')
         athlete_folder = UPLOAD_FOLDER / athlete_folder_name / date_folder
         athlete_folder.mkdir(parents=True, exist_ok=True)
         
-        # Collect all form data
-        check_in_data = {
-            'timestamp': datetime.now().isoformat(),
-            'athlete_name': client_name,
-            'checkin_date': checkin_date,
-            'division': request.form.get('division', ''),
-            'weight': request.form.get('weight', ''),
-            'waist': request.form.get('waist', ''),
-            'meals_compliant': request.form.get('meals_compliant', ''),
-            'off_plan_foods': request.form.get('off_plan_foods', ''),
-            'water_intake': request.form.get('water_intake', ''),
-            'hunger': request.form.get('hunger', ''),
-            'cravings': request.form.get('cravings', ''),
-            'weight_workouts': request.form.get('weight_workouts', ''),
-            'cardio_sessions': request.form.get('cardio_sessions', ''),
-            'strength_trend': request.form.get('strength_trend', ''),
-            'training_notes': request.form.get('training_notes', ''),
-            'sleep_hours': request.form.get('sleep_hours', ''),
-            'sleep_quality': request.form.get('sleep_quality', ''),
-            'energy': request.form.get('energy', ''),
-            'stress_level': request.form.get('stress_level', ''),
-            'mood': request.form.get('mood', ''),
-            'digestion': request.form.get('digestion', ''),
-            'regularity': request.form.get('regularity', ''),
-            'coach_notes': request.form.get('coach_notes', ''),
-            'files': {}
-        }
+        # Collect photos
+        photos = []
+        video_path = None
         
-        # Handle all file uploads
-        files_uploaded = []
-        
-        # Define all possible pose uploads
-        all_pose_fields = [
-            # Relaxed poses
+        # All file fields
+        file_fields = [
             ('pose_front_relaxed', 'front_relaxed'),
             ('pose_left_relaxed', 'left_relaxed'),
             ('pose_right_relaxed', 'right_relaxed'),
             ('pose_rear_relaxed', 'rear_relaxed'),
-            # Bikini poses
-            ('bikini_front', 'bikini_front'),
-            ('bikini_left', 'bikini_left'),
-            ('bikini_rear', 'bikini_rear'),
-            ('bikini_right', 'bikini_right'),
-            # Figure poses
-            ('figure_front', 'figure_front'),
-            ('figure_left', 'figure_left'),
-            ('figure_rear', 'figure_rear'),
-            ('figure_right', 'figure_right'),
-            # Wellness poses
-            ('wellness_front', 'wellness_front'),
-            ('wellness_left', 'wellness_left'),
-            ('wellness_rear', 'wellness_rear'),
-            ('wellness_right', 'wellness_right'),
-            # Women's Physique poses
-            ('wp_front', 'wp_front'),
-            ('wp_left', 'wp_left'),
-            ('wp_rear', 'wp_rear'),
-            ('wp_right', 'wp_right'),
-            ('wp_front_db', 'wp_front_db'),
-            ('wp_side_chest', 'wp_side_chest'),
-            ('wp_rear_db', 'wp_rear_db'),
-            ('wp_side_tri', 'wp_side_tri'),
-            ('wp_abs', 'wp_abs'),
-            # Men's Physique
-            ('mp_front', 'mp_front'),
-            ('mp_back', 'mp_back'),
-            # Bodybuilding poses
-            ('bb_front_db', 'bb_front_db'),
-            ('bb_front_lat', 'bb_front_lat'),
-            ('bb_side_chest', 'bb_side_chest'),
-            ('bb_back_db', 'bb_back_db'),
-            ('bb_back_lat', 'bb_back_lat'),
-            ('bb_side_tri', 'bb_side_tri'),
-            ('bb_abs', 'bb_abs'),
-            # Classic Physique
-            ('classic_front_db', 'classic_front_db'),
-            ('classic_side_chest', 'classic_side_chest'),
-            ('classic_rear_db', 'classic_rear_db'),
-            ('classic_abs', 'classic_abs'),
+            ('bikini_front', 'bikini_front'), ('bikini_left', 'bikini_left'),
+            ('bikini_rear', 'bikini_rear'), ('bikini_right', 'bikini_right'),
+            ('figure_front', 'figure_front'), ('figure_left', 'figure_left'),
+            ('figure_rear', 'figure_rear'), ('figure_right', 'figure_right'),
+            ('wellness_front', 'wellness_front'), ('wellness_left', 'wellness_left'),
+            ('wellness_rear', 'wellness_rear'), ('wellness_right', 'wellness_right'),
+            ('wp_front', 'wp_front'), ('wp_left', 'wp_left'), ('wp_rear', 'wp_rear'), ('wp_right', 'wp_right'),
+            ('wp_front_db', 'wp_front_db'), ('wp_side_chest', 'wp_side_chest'),
+            ('wp_rear_db', 'wp_rear_db'), ('wp_side_tri', 'wp_side_tri'), ('wp_abs', 'wp_abs'),
+            ('mp_front', 'mp_front'), ('mp_back', 'mp_back'),
+            ('bb_front_db', 'bb_front_db'), ('bb_front_lat', 'bb_front_lat'),
+            ('bb_side_chest', 'bb_side_chest'), ('bb_back_db', 'bb_back_db'),
+            ('bb_back_lat', 'bb_back_lat'), ('bb_side_tri', 'bb_side_tri'), ('bb_abs', 'bb_abs'),
+            ('classic_front_db', 'classic_front_db'), ('classic_side_chest', 'classic_side_chest'),
+            ('classic_rear_db', 'classic_rear_db'), ('classic_abs', 'classic_abs'),
             ('classic_favorite', 'classic_favorite'),
-            # Video
             ('posing_video', 'posing_video')
         ]
         
-        for field_name, file_prefix in all_pose_fields:
+        for field_name, file_prefix in file_fields:
             if field_name in request.files:
                 file_path = save_uploaded_file(request.files[field_name], athlete_folder, file_prefix)
                 if file_path:
-                    check_in_data['files'][field_name] = file_path
-                    files_uploaded.append(file_prefix)
+                    if field_name == 'posing_video':
+                        video_path = str(file_path)
+                    else:
+                        photos.append(str(file_path))
         
-        # Save check-in data
-        data_file = UPLOAD_FOLDER / f"{athlete_folder_name}_checkins.json"
-        all_checkins = []
-        if data_file.exists():
-            with open(data_file, 'r') as f:
-                all_checkins = json.load(f)
+        # Determine status
+        meals = request.form.get('meals_compliant', '100')
+        status = 'new'
+        if meals and meals not in ['', '100']:
+            try:
+                if int(meals) < 80:
+                    status = 'needs-attention'
+            except:
+                pass
         
-        all_checkins.append(check_in_data)
+        # Save to database
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        with open(data_file, 'w') as f:
-            json.dump(all_checkins, f, indent=2)
+        # Check if PostgreSQL (has server_version attribute)
+        is_postgres = hasattr(conn, 'server_version')
+        
+        if is_postgres:
+            cur.execute('''
+                INSERT INTO checkins 
+                (athlete_name, checkin_date, division, weight, waist, meals_compliant, 
+                off_plan_foods, water_intake, hunger, cravings, weight_workouts, 
+                cardio_sessions, strength_trend, training_notes, sleep_hours, sleep_quality,
+                energy, stress_level, mood, digestion, regularity, coach_notes, photos, video_path, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (
+                client_name, checkin_date, request.form.get('division', ''),
+                request.form.get('weight', ''), request.form.get('waist', ''),
+                meals, request.form.get('off_plan_foods', ''),
+                request.form.get('water_intake', ''), request.form.get('hunger', ''),
+                request.form.get('cravings', ''), request.form.get('weight_workouts', ''),
+                request.form.get('cardio_sessions', ''), request.form.get('strength_trend', ''),
+                request.form.get('training_notes', ''), request.form.get('sleep_hours', ''),
+                request.form.get('sleep_quality', ''), request.form.get('energy', ''),
+                request.form.get('stress_level', ''), request.form.get('mood', ''),
+                request.form.get('digestion', ''), request.form.get('regularity', ''),
+                request.form.get('coach_notes', ''), json.dumps(photos), video_path, status
+            ))
+        else:
+            # SQLite
+            cur.execute('''
+                INSERT INTO checkins 
+                (athlete_name, checkin_date, division, weight, waist, meals_compliant, 
+                off_plan_foods, water_intake, hunger, cravings, weight_workouts, 
+                cardio_sessions, strength_trend, training_notes, sleep_hours, sleep_quality,
+                energy, stress_level, mood, digestion, regularity, coach_notes, photos, video_path, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                client_name, checkin_date, request.form.get('division', ''),
+                request.form.get('weight', ''), request.form.get('waist', ''),
+                meals, request.form.get('off_plan_foods', ''),
+                request.form.get('water_intake', ''), request.form.get('hunger', ''),
+                request.form.get('cravings', ''), request.form.get('weight_workouts', ''),
+                request.form.get('cardio_sessions', ''), request.form.get('strength_trend', ''),
+                request.form.get('training_notes', ''), request.form.get('sleep_hours', ''),
+                request.form.get('sleep_quality', ''), request.form.get('energy', ''),
+                request.form.get('stress_level', ''), request.form.get('mood', ''),
+                request.form.get('digestion', ''), request.form.get('regularity', ''),
+                request.form.get('coach_notes', ''), json.dumps(photos), video_path, status
+            ))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
         
         return jsonify({
             'success': True,
             'message': 'Check-in submitted successfully!',
             'athlete': client_name,
-            'checkin_date': checkin_date,
-            'files_uploaded': len(files_uploaded)
+            'files_uploaded': len(photos) + (1 if video_path else 0)
         }), 200
         
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
-
 
 @app.route('/dashboard/login', methods=['GET', 'POST'])
 def dashboard_login():
@@ -252,113 +336,113 @@ def dashboard_logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Read all check-in data
-    checkins = []
-    total_checkins = 0
-    new_count = 0
-    needs_attention = 0
-    total_energy = 0
+    # Get stats from database
+    conn = get_db_connection()
+    cur = conn.cursor()
     
-    if UPLOAD_FOLDER.exists():
-        for json_file in UPLOAD_FOLDER.glob('*_checkins.json'):
-            try:
-                with open(json_file, 'r') as f:
-                    data = json.load(f)
-                    for checkin in data:
-                        total_checkins += 1
-                        
-                        # Determine status
-                        status = 'new'
-                        meals = checkin.get('meals_compliant', '100')
-                        if meals and meals not in ['', '100']:
-                            try:
-                                if int(meals) < 80:
-                                    status = 'needs-attention'
-                                    needs_attention += 1
-                            except:
-                                pass
-                        
-                        if status == 'new':
-                            new_count += 1
-                        
-                        # Get energy
-                        energy = checkin.get('energy', '5')
-                        try:
-                            total_energy += int(energy)
-                        except:
-                            pass
-                        
-                        # Get photos
-                        photos = []
-                        if 'files' in checkin:
-                            for key, path in checkin['files'].items():
-                                if not key.endswith('video'):
-                                    photos.append('/uploads/' + path.replace('\\', '/'))
-                        
-                        checkins.append({
-                            'athlete_name': checkin.get('athlete_name', 'Unknown'),
-                            'checkin_date': checkin.get('checkin_date', ''),
-                            'division': checkin.get('division', ''),
-                            'weight': checkin.get('weight', 'N/A'),
-                            'waist': checkin.get('waist', 'N/A'),
-                            'meals_compliant': meals if meals else 'N/A',
-                            'energy': energy,
-                            'weight_workouts': checkin.get('weight_workouts', '0'),
-                            'cardio_sessions': checkin.get('cardio_sessions', '0'),
-                            'status': status,
-                            'photos': photos[:4]
-                        })
-            except Exception as e:
-                print(f"Error reading {json_file}: {e}")
-                continue
+    # Check if PostgreSQL
+    is_postgres = hasattr(conn, 'server_version')
     
-    # Sort by date (newest first)
-    checkins.sort(key=lambda x: x['checkin_date'], reverse=True)
-    avg_energy = round(total_energy / len(checkins), 1) if checkins else 0
+    # Get counts
+    if is_postgres:
+        cur.execute("SELECT COUNT(*) FROM checkins")
+        total_checkins = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'new'")
+        new_count = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'needs-attention'")
+        needs_attention = cur.fetchone()[0]
+        
+        cur.execute("SELECT AVG(CAST(energy AS INTEGER)) FROM checkins WHERE energy IS NOT NULL AND energy != ''")
+        result = cur.fetchone()
+        avg_energy = round(result[0], 1) if result and result[0] else 0
+        
+        # Get all checkins
+        cur.execute('''
+            SELECT athlete_name, checkin_date, division, weight, waist, meals_compliant,
+                   energy, weight_workouts, cardio_sessions, status, photos
+            FROM checkins ORDER BY created_at DESC
+        ''')
+        rows = cur.fetchall()
+    else:
+        # SQLite
+        cur.execute("SELECT COUNT(*) FROM checkins")
+        total_checkins = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'new'")
+        new_count = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'needs-attention'")
+        needs_attention = cur.fetchone()[0]
+        
+        cur.execute("SELECT AVG(CAST(energy AS REAL)) FROM checkins WHERE energy IS NOT NULL AND energy != ''")
+        result = cur.fetchone()
+        avg_energy = round(result[0], 1) if result and result[0] else 0
+        
+        cur.execute('''
+            SELECT athlete_name, checkin_date, division, weight, waist, meals_compliant,
+                   energy, weight_workouts, cardio_sessions, status, photos
+            FROM checkins ORDER BY created_at DESC
+        ''')
+        rows = cur.fetchall()
     
-    # Build HTML
+    cur.close()
+    conn.close()
+    
+    # Build cards HTML
     cards_html = ''
-    for c in checkins:
+    for row in rows:
+        athlete_name, checkin_date, division, weight, waist, meals_compliant, energy, weight_workouts, cardio_sessions, status, photos_json = row
+        
+        # Parse photos
+        try:
+            photos = json.loads(photos_json) if photos_json else []
+        except:
+            photos = []
+        
         # Meal compliance class
         meal_class = 'good'
-        if c['meals_compliant'] not in ['N/A', '100']:
+        if meals_compliant and meals_compliant not in ['N/A', '100']:
             try:
-                if int(c['meals_compliant']) < 80:
+                if int(meals_compliant) < 80:
                     meal_class = 'warning'
             except:
                 pass
         
         # Photos HTML
         photos_html = ''
-        if c['photos']:
-            photos_html = "<div class='photos-section'><div class='photos-label'>Photos (" + str(len(c['photos'])) + ")</div><div class='photos-grid'>"
-            for p in c['photos']:
-                photos_html += f'<img src="{p}" class="photo-thumb" onclick="openLightbox(&#39;{p}&#39;)">'
+        if photos:
+            photos_html = "<div class='photos-section'><div class='photos-label'>Photos (" + str(len(photos)) + ")</div><div class='photos-grid'>"
+            for p in photos:
+                # Convert Windows path to URL path
+                p_url = p.replace('\\', '/')
+                photos_html += f'<img src="/uploads/{p_url}" class="photo-thumb" onclick="openLightbox(&#39;/uploads/{p_url}&#39;)">'
             photos_html += "</div></div>"
         
         cards_html += f'''
-        <div class="athlete-card {c['status']}" data-status="{c['status']}" data-division="{c['division']}">
+        <div class="athlete-card {status}" data-status="{status}" data-division="{division}">
             <div class="athlete-header">
                 <div>
-                    <div class="athlete-name">{c['athlete_name']}</div>
-                    <div class="checkin-date">{c['checkin_date']}</div>
+                    <div class="athlete-name">{athlete_name}</div>
+                    <div class="checkin-date">{checkin_date}</div>
                 </div>
-                <span class="status-badge status-{c['status']}">{c['status']}</span>
+                <span class="status-badge status-{status}">{status}</span>
             </div>
             <div class="metrics-grid">
-                <div class="metric"><div class="metric-label">Weight</div><div class="metric-value">{c['weight']} lbs</div></div>
-                <div class="metric"><div class="metric-label">Waist</div><div class="metric-value">{c['waist']}"</div></div>
-                <div class="metric"><div class="metric-label">Meal Compliance</div><div class="metric-value {meal_class}">{c['meals_compliant']}%</div></div>
-                <div class="metric"><div class="metric-label">Energy Level</div><div class="metric-value">{c['energy']}/10</div></div>
-                <div class="metric"><div class="metric-label">Training</div><div class="metric-value">{c['weight_workouts']} workouts</div></div>
-                <div class="metric"><div class="metric-label">Cardio</div><div class="metric-value">{c['cardio_sessions']} sessions</div></div>
+                <div class="metric"><div class="metric-label">Weight</div><div class="metric-value">{weight or 'N/A'} lbs</div></div>
+                <div class="metric"><div class="metric-label">Waist</div><div class="metric-value">{waist or 'N/A'}"</div></div>
+                <div class="metric"><div class="metric-label">Meal Compliance</div><div class="metric-value {meal_class}">{meals_compliant or 'N/A'}%</div></div>
+                <div class="metric"><div class="metric-label">Energy Level</div><div class="metric-value">{energy or 'N/A'}/10</div></div>
+                <div class="metric"><div class="metric-label">Training</div><div class="metric-value">{weight_workouts or '0'} workouts</div></div>
+                <div class="metric"><div class="metric-label">Cardio</div><div class="metric-value">{cardio_sessions or '0'} sessions</div></div>
             </div>
             {photos_html}
         </div>
         '''
     
     # Empty state
-    if not checkins:
+    if not rows:
         cards_html = '''
         <div class="empty-state">
             <div class="empty-state-icon">📋</div>
