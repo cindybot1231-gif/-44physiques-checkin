@@ -57,6 +57,12 @@ def index():
     return send_from_directory('.', 'index.html')
 
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files (logo, etc.)"""
+    return send_from_directory('static', filename)
+
+
 @app.route('/submit-checkin', methods=['POST'])
 def submit_checkin():
     """Handle check-in form submission"""
