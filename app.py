@@ -493,6 +493,12 @@ def dashboard():
     # Check if PostgreSQL
     is_postgres = hasattr(conn, 'server_version')
     
+    # For PostgreSQL, ensure we see fresh data by committing any pending transaction
+    # and setting appropriate isolation level
+    if is_postgres:
+        conn.commit()  # Ensure we start with a fresh transaction
+        cur.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+    
     # Get counts
     if is_postgres:
         cur.execute("SELECT COUNT(*) FROM checkins")
@@ -683,7 +689,13 @@ def dashboard():
 </body>
 </html>'''
     
-    return html
+    # Return with cache-control headers to prevent stale data
+    from flask import Response
+    response = Response(html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
