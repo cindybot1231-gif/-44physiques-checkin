@@ -9,10 +9,24 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template_string, redirect, session
 from werkzeug.utils import secure_filename
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = '44physiques_secret_key_2026'
+
+# Simple auth for David
+AUTH_USERNAME = 'DavidFenty44'
+AUTH_PASSWORD = '44Physiques'
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect('/dashboard/login')
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Configuration
 UPLOAD_FOLDER = Path("uploads")
@@ -194,6 +208,161 @@ def submit_checkin():
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
+
+@app.route('/dashboard/login', methods=['GET', 'POST'])
+def dashboard_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username == AUTH_USERNAME and password == AUTH_PASSWORD:
+            session['logged_in'] = True
+            return redirect('/dashboard')
+        return '<h1 style="color: #791619; text-align: center; margin-top: 100px;">Invalid credentials. <a href="/dashboard/login">Try again</a></h1>'
+    
+    return '''<!DOCTYPE html>
+<html>
+<head>
+    <title>Coach Login - 44 Physiques</title>
+    <style>
+        body { background: #0a0a0a; color: #fff; font-family: Inter, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .login-box { background: #111; border: 2px solid #791619; padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; }
+        h1 { color: #791619; text-align: center; margin-bottom: 30px; font-family: Bebas Neue, sans-serif; letter-spacing: 3px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #1a1a1a; border: 2px solid #333; border-radius: 6px; color: #fff; font-size: 1rem; }
+        button { width: 100%; padding: 15px; background: #791619; color: #fff; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
+        button:hover { background: #8a1a1d; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>44 PHYSIQUES<br>COACH LOGIN</h1>
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">LOGIN</button>
+        </form>
+    </div>
+</body>
+</html>'''
+
+@app.route('/dashboard/logout')
+def dashboard_logout():
+    session.pop('logged_in', None)
+    return redirect('/dashboard/login')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # Read all check-in data
+    checkins = []
+    total_checkins = 0
+    new_checkins = 0
+    needs_attention = 0
+    total_energy = 0
+    
+    if UPLOAD_FOLDER.exists():
+        for json_file in UPLOAD_FOLDER.glob('*_checkins.json'):
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+                for checkin in data:
+                    total_checkins += 1
+                    # Get photos
+                    photos = []
+                    if 'files' in checkin:
+                        for key, path in checkin['files'].items():
+                            if not key.endswith('video'):
+                                photos.append(f'/uploads/{path}')
+                    
+                    # Determine status
+                    status = 'new'
+                    if checkin.get('meals_compliant', '100') not in ['', '100'] and int(checkin.get('meals_compliant', 100)) < 80:
+                        status = 'needs-attention'
+                        needs_attention += 1
+                    
+                    if checkin.get('energy'):
+                        try:
+                            total_energy += int(checkin['energy'])
+                        except:
+                            pass
+                    
+                    checkins.append({
+                        'id': f"{checkin['athlete_name']}_{checkin['timestamp']}",
+                        'athlete_name': checkin['athlete_name'],
+                        'checkin_date': checkin['checkin_date'],
+                        'division': checkin.get('division', ''),
+                        'weight': checkin.get('weight', 'N/A'),
+                        'waist': checkin.get('waist', 'N/A'),
+                        'meals_compliant': checkin.get('meals_compliant', 'N/A'),
+                        'energy': checkin.get('energy', 'N/A'),
+                        'weight_workouts': checkin.get('weight_workouts', '0'),
+                        'cardio_sessions': checkin.get('cardio_sessions', '0'),
+                        'status': status,
+                        'photos': photos[:4]  # Show first 4 photos
+                    })
+    
+    # Sort by date (newest first)
+    checkins.sort(key=lambda x: x['checkin_date'], reverse=True)
+    new_checkins = len([c for c in checkins if c['status'] == 'new'])
+    avg_energy = round(total_energy / len(checkins), 1) if checkins else 0
+    
+    # Read template
+    template_path = Path(__file__).parent / 'templates' / 'dashboard.html'
+    if template_path.exists():
+        with open(template_path, 'r') as f:
+            template = f.read()
+    else:
+        return '<h1>Dashboard template not found</h1>'
+    
+    # Simple template rendering
+    html = template.replace('{{ total_checkins }}', str(total_checkins))
+    html = html.replace('{{ new_checkins }}', str(new_checkins))
+    html = html.replace('{{ needs_attention }}', str(needs_attention))
+    html = html.replace('{{ avg_energy }}', str(avg_energy))
+    
+    # Render checkin cards
+    checkin_html = ''
+    for checkin in checkins:
+        photos_html = ''
+        for photo in checkin['photos']:
+            photos_html += f'<img src="{photo}" class="photo-thumb" onclick="openLightbox(\'{photo}\')">'
+        
+        checkin_html += f'''
+        <div class="athlete-card {checkin['status']}" data-status="{checkin['status']}" data-division="{checkin['division']}">
+            <div class="athlete-header">
+                <div>
+                    <div class="athlete-name">{checkin['athlete_name']}</div>
+                    <div class="checkin-date">{checkin['checkin_date']}</div>
+                </div>
+                <span class="status-badge status-{checkin['status']}">{checkin['status']}</span>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric"><div class="metric-label">Weight</div><div class="metric-value">{checkin['weight']} lbs</div></div>
+                <div class="metric"><div class="metric-label">Waist</div><div class="metric-value">{checkin['waist']}"</div></div>
+                <div class="metric"><div class="metric-label">Meal Compliance</div><div class="metric-value {'warning' if checkin['meals_compliant'] not in ['N/A', '100'] and int(checkin['meals_compliant']) < 80 else 'good'}">{checkin['meals_compliant']}%</div></div>
+                <div class="metric"><div class="metric-label">Energy Level</div><div class="metric-value">{checkin['energy']}/10</div></div>
+                <div class="metric"><div class="metric-label">Training</div><div class="metric-value">{checkin['weight_workouts']} workouts</div></div>
+                <div class="metric"><div class="metric-label">Cardio</div><div class="metric-value">{checkin['cardio_sessions']} sessions</div></div>
+            </div>
+            {"<div class='photos-section'><div class='photos-label'>Photos</div><div class='photos-grid'>" + photos_html + "</div></div>" if photos_html else ""}
+        </div>
+        '''
+    
+    html = html.replace('{% for checkin in checkins %}', '')
+    html = html.replace('{% endfor %}', '')
+    html = html.replace('{{ checkin.athlete_name }}', '')
+    html = html.replace('{% if not checkins %}', '')
+    html = html.replace('{% endif %}', '')
+    html = html.replace('{% for photo in checkin.photos %}', '')
+    
+    # Insert checkin cards
+    if checkins:
+        html = html.replace('<div class="athlete-grid" id="checkinGrid">', f'<div class="athlete-grid" id="checkinGrid">{checkin_html}')
+    
+    return render_template_string(html)
+
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    """Serve uploaded files"""
+    return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
