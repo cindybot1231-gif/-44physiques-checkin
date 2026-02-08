@@ -255,109 +255,213 @@ def dashboard():
     # Read all check-in data
     checkins = []
     total_checkins = 0
-    new_checkins = 0
+    new_count = 0
     needs_attention = 0
     total_energy = 0
     
     if UPLOAD_FOLDER.exists():
         for json_file in UPLOAD_FOLDER.glob('*_checkins.json'):
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-                for checkin in data:
-                    total_checkins += 1
-                    # Get photos
-                    photos = []
-                    if 'files' in checkin:
-                        for key, path in checkin['files'].items():
-                            if not key.endswith('video'):
-                                photos.append(f'/uploads/{path}')
-                    
-                    # Determine status
-                    status = 'new'
-                    if checkin.get('meals_compliant', '100') not in ['', '100'] and int(checkin.get('meals_compliant', 100)) < 80:
-                        status = 'needs-attention'
-                        needs_attention += 1
-                    
-                    if checkin.get('energy'):
+            try:
+                with open(json_file, 'r') as f:
+                    data = json.load(f)
+                    for checkin in data:
+                        total_checkins += 1
+                        
+                        # Determine status
+                        status = 'new'
+                        meals = checkin.get('meals_compliant', '100')
+                        if meals and meals not in ['', '100']:
+                            try:
+                                if int(meals) < 80:
+                                    status = 'needs-attention'
+                                    needs_attention += 1
+                            except:
+                                pass
+                        
+                        if status == 'new':
+                            new_count += 1
+                        
+                        # Get energy
+                        energy = checkin.get('energy', '5')
                         try:
-                            total_energy += int(checkin['energy'])
+                            total_energy += int(energy)
                         except:
                             pass
-                    
-                    checkins.append({
-                        'id': f"{checkin['athlete_name']}_{checkin['timestamp']}",
-                        'athlete_name': checkin['athlete_name'],
-                        'checkin_date': checkin['checkin_date'],
-                        'division': checkin.get('division', ''),
-                        'weight': checkin.get('weight', 'N/A'),
-                        'waist': checkin.get('waist', 'N/A'),
-                        'meals_compliant': checkin.get('meals_compliant', 'N/A'),
-                        'energy': checkin.get('energy', 'N/A'),
-                        'weight_workouts': checkin.get('weight_workouts', '0'),
-                        'cardio_sessions': checkin.get('cardio_sessions', '0'),
-                        'status': status,
-                        'photos': photos[:4]  # Show first 4 photos
-                    })
+                        
+                        # Get photos
+                        photos = []
+                        if 'files' in checkin:
+                            for key, path in checkin['files'].items():
+                                if not key.endswith('video'):
+                                    photos.append('/uploads/' + path.replace('\\', '/'))
+                        
+                        checkins.append({
+                            'athlete_name': checkin.get('athlete_name', 'Unknown'),
+                            'checkin_date': checkin.get('checkin_date', ''),
+                            'division': checkin.get('division', ''),
+                            'weight': checkin.get('weight', 'N/A'),
+                            'waist': checkin.get('waist', 'N/A'),
+                            'meals_compliant': meals if meals else 'N/A',
+                            'energy': energy,
+                            'weight_workouts': checkin.get('weight_workouts', '0'),
+                            'cardio_sessions': checkin.get('cardio_sessions', '0'),
+                            'status': status,
+                            'photos': photos[:4]
+                        })
+            except Exception as e:
+                print(f"Error reading {json_file}: {e}")
+                continue
     
     # Sort by date (newest first)
     checkins.sort(key=lambda x: x['checkin_date'], reverse=True)
-    new_checkins = len([c for c in checkins if c['status'] == 'new'])
     avg_energy = round(total_energy / len(checkins), 1) if checkins else 0
     
-    # Read template
-    template_path = Path(__file__).parent / 'templates' / 'dashboard.html'
-    if template_path.exists():
-        with open(template_path, 'r') as f:
-            template = f.read()
-    else:
-        return '<h1>Dashboard template not found</h1>'
-    
-    # Simple template rendering
-    html = template.replace('{{ total_checkins }}', str(total_checkins))
-    html = html.replace('{{ new_checkins }}', str(new_checkins))
-    html = html.replace('{{ needs_attention }}', str(needs_attention))
-    html = html.replace('{{ avg_energy }}', str(avg_energy))
-    
-    # Render checkin cards
-    checkin_html = ''
-    for checkin in checkins:
-        photos_html = ''
-        for photo in checkin['photos']:
-            photos_html += f'<img src="{photo}" class="photo-thumb" onclick="openLightbox(\'{photo}\')">'
+    # Build HTML
+    cards_html = ''
+    for c in checkins:
+        # Meal compliance class
+        meal_class = 'good'
+        if c['meals_compliant'] not in ['N/A', '100']:
+            try:
+                if int(c['meals_compliant']) < 80:
+                    meal_class = 'warning'
+            except:
+                pass
         
-        checkin_html += f'''
-        <div class="athlete-card {checkin['status']}" data-status="{checkin['status']}" data-division="{checkin['division']}">
+        # Photos HTML
+        photos_html = ''
+        if c['photos']:
+            photos_html = "<div class='photos-section'><div class='photos-label'>Photos (" + str(len(c['photos'])) + ")</div><div class='photos-grid'>"
+            for p in c['photos']:
+                photos_html += f'<img src="{p}" class="photo-thumb" onclick="openLightbox(&#39;{p}&#39;)">'
+            photos_html += "</div></div>"
+        
+        cards_html += f'''
+        <div class="athlete-card {c['status']}" data-status="{c['status']}" data-division="{c['division']}">
             <div class="athlete-header">
                 <div>
-                    <div class="athlete-name">{checkin['athlete_name']}</div>
-                    <div class="checkin-date">{checkin['checkin_date']}</div>
+                    <div class="athlete-name">{c['athlete_name']}</div>
+                    <div class="checkin-date">{c['checkin_date']}</div>
                 </div>
-                <span class="status-badge status-{checkin['status']}">{checkin['status']}</span>
+                <span class="status-badge status-{c['status']}">{c['status']}</span>
             </div>
             <div class="metrics-grid">
-                <div class="metric"><div class="metric-label">Weight</div><div class="metric-value">{checkin['weight']} lbs</div></div>
-                <div class="metric"><div class="metric-label">Waist</div><div class="metric-value">{checkin['waist']}"</div></div>
-                <div class="metric"><div class="metric-label">Meal Compliance</div><div class="metric-value {'warning' if checkin['meals_compliant'] not in ['N/A', '100'] and int(checkin['meals_compliant']) < 80 else 'good'}">{checkin['meals_compliant']}%</div></div>
-                <div class="metric"><div class="metric-label">Energy Level</div><div class="metric-value">{checkin['energy']}/10</div></div>
-                <div class="metric"><div class="metric-label">Training</div><div class="metric-value">{checkin['weight_workouts']} workouts</div></div>
-                <div class="metric"><div class="metric-label">Cardio</div><div class="metric-value">{checkin['cardio_sessions']} sessions</div></div>
+                <div class="metric"><div class="metric-label">Weight</div><div class="metric-value">{c['weight']} lbs</div></div>
+                <div class="metric"><div class="metric-label">Waist</div><div class="metric-value">{c['waist']}"</div></div>
+                <div class="metric"><div class="metric-label">Meal Compliance</div><div class="metric-value {meal_class}">{c['meals_compliant']}%</div></div>
+                <div class="metric"><div class="metric-label">Energy Level</div><div class="metric-value">{c['energy']}/10</div></div>
+                <div class="metric"><div class="metric-label">Training</div><div class="metric-value">{c['weight_workouts']} workouts</div></div>
+                <div class="metric"><div class="metric-label">Cardio</div><div class="metric-value">{c['cardio_sessions']} sessions</div></div>
             </div>
-            {"<div class='photos-section'><div class='photos-label'>Photos</div><div class='photos-grid'>" + photos_html + "</div></div>" if photos_html else ""}
+            {photos_html}
         </div>
         '''
     
-    html = html.replace('{% for checkin in checkins %}', '')
-    html = html.replace('{% endfor %}', '')
-    html = html.replace('{{ checkin.athlete_name }}', '')
-    html = html.replace('{% if not checkins %}', '')
-    html = html.replace('{% endif %}', '')
-    html = html.replace('{% for photo in checkin.photos %}', '')
+    # Empty state
+    if not checkins:
+        cards_html = '''
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h2>No Check-ins Yet</h2>
+            <p>Athlete check-ins will appear here once they start submitting.</p>
+        </div>
+        '''
     
-    # Insert checkin cards
-    if checkins:
-        html = html.replace('<div class="athlete-grid" id="checkinGrid">', f'<div class="athlete-grid" id="checkinGrid">{checkin_html}')
+    html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>44 Physiques - Coach Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: #0a0a0a; color: #fff; line-height: 1.6; min-height: 100vh; }}
+        .header {{ background: #1a1a1a; border-bottom: 4px solid #791619; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 4px; color: #fff; }}
+        .logo span {{ color: #791619; }}
+        .logout-btn {{ background: transparent; border: 2px solid #791619; color: #791619; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; }}
+        .logout-btn:hover {{ background: #791619; color: #fff; }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 30px; }}
+        .stats-bar {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+        .stat-card {{ background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; }}
+        .stat-value {{ font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: #791619; }}
+        .stat-label {{ color: #888; font-size: 0.9rem; margin-top: 5px; }}
+        .athlete-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }}
+        .athlete-card {{ background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; transition: all 0.3s ease; }}
+        .athlete-card:hover {{ border-color: #791619; transform: translateY(-2px); }}
+        .athlete-card.new {{ border-left: 4px solid #791619; }}
+        .athlete-card.needs-attention {{ border-left: 4px solid #ff4444; }}
+        .athlete-header {{ display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #333; }}
+        .athlete-name {{ font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: #fff; }}
+        .checkin-date {{ color: #888; font-size: 0.85rem; }}
+        .status-badge {{ padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }}
+        .status-new {{ background: rgba(121, 22, 25, 0.3); color: #791619; }}
+        .status-needs-attention {{ background: rgba(255, 68, 68, 0.3); color: #ff4444; }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }}
+        .metric {{ background: #1a1a1a; padding: 10px; border-radius: 6px; }}
+        .metric-label {{ font-size: 0.75rem; color: #888; text-transform: uppercase; }}
+        .metric-value {{ font-size: 1.1rem; font-weight: 600; color: #fff; margin-top: 3px; }}
+        .metric-value.warning {{ color: #ff4444; }}
+        .metric-value.good {{ color: #2d8a2d; }}
+        .photos-section {{ margin-top: 15px; }}
+        .photos-label {{ font-size: 0.85rem; color: #888; margin-bottom: 10px; }}
+        .photos-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; }}
+        .photo-thumb {{ width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 2px solid #333; cursor: pointer; transition: all 0.2s; }}
+        .photo-thumb:hover {{ border-color: #791619; transform: scale(1.05); }}
+        .empty-state {{ text-align: center; padding: 60px; color: #888; grid-column: 1 / -1; }}
+        .empty-state-icon {{ font-size: 4rem; margin-bottom: 20px; }}
+        .lightbox {{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }}
+        .lightbox img {{ max-width: 90%; max-height: 90%; object-fit: contain; }}
+        .lightbox-close {{ position: absolute; top: 20px; right: 30px; font-size: 3rem; color: #fff; cursor: pointer; }}
+        @media (max-width: 768px) {{ .athlete-grid {{ grid-template-columns: 1fr; }} }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">44 <span>PHYSIQUES</span> COACH DASHBOARD</div>
+        <a href="/dashboard/logout" class="logout-btn">Logout</a>
+    </div>
+    <div class="container">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value">{total_checkins}</div>
+                <div class="stat-label">Total Check-ins</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{new_count}</div>
+                <div class="stat-label">New This Week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{needs_attention}</div>
+                <div class="stat-label">Need Attention</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{avg_energy}</div>
+                <div class="stat-label">Avg Energy Level</div>
+            </div>
+        </div>
+        <div class="athlete-grid">
+            {cards_html}
+        </div>
+    </div>
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img id="lightbox-img" src="">
+    </div>
+    <script>
+        function openLightbox(src) {{
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').style.display = 'flex';
+        }}
+        function closeLightbox() {{
+            document.getElementById('lightbox').style.display = 'none';
+        }}
+    </script>
+</body>
+</html>'''
     
-    return render_template_string(html)
+    return html
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
