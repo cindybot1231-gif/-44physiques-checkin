@@ -14,8 +14,9 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 import psycopg2
 from urllib.parse import urlparse
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import base64
 
 app = Flask(__name__)
@@ -140,13 +141,15 @@ def login_required(f):
     return decorated_function
 
 def send_checkin_email(checkin_data, photos, video_path):
-    """Send email notification to David when athlete submits check-in"""
+    """Send email notification to David when athlete submits check-in using Outlook SMTP"""
     try:
-        sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
+        # Get credentials from environment
+        smtp_user = os.environ.get('SMTP_USER', 'cindybot123125@outlook.com')
+        smtp_pass = os.environ.get('SMTP_PASSWORD', '')
         coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
         
-        if not sendgrid_api_key:
-            print("SendGrid API key not configured - skipping email")
+        if not smtp_pass:
+            print("SMTP password not configured - skipping email")
             return
         
         # Build email content
@@ -219,18 +222,22 @@ def send_checkin_email(checkin_data, photos, video_path):
         </html>
         """
         
-        message = Mail(
-            from_email='notifications@44physiques.com',
-            to_emails=coach_email,
-            subject=subject,
-            html_content=html_content
-        )
+        # Create email
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = smtp_user
+        msg['To'] = coach_email
         
-        # Send email
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        msg.attach(MIMEText(html_content, 'html'))
         
-        print(f"Email sent to {coach_email}, status: {response.status_code}")
+        # Send via Outlook SMTP
+        server = smtplib.SMTP('smtp.office365.com', 587)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, coach_email, msg.as_string())
+        server.quit()
+        
+        print(f"Email sent to {coach_email} via Outlook")
         
     except Exception as e:
         print(f"Error sending email: {e}")
