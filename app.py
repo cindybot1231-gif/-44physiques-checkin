@@ -248,10 +248,6 @@ def send_checkin_email(checkin_data, photos, video_path):
 
 
 def sanitize_folder_name(name):
-                print("SMTP password not configured - skipping email")
-                return
-        
-        # Build email content
         subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
         
         html_content = f"""
