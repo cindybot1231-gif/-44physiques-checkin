@@ -354,10 +354,6 @@ def dashboard():
         cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'needs-attention'")
         needs_attention = cur.fetchone()[0]
         
-        cur.execute("SELECT AVG(CAST(energy AS INTEGER)) FROM checkins WHERE energy IS NOT NULL AND energy != ''")
-        result = cur.fetchone()
-        avg_energy = round(result[0], 1) if result and result[0] else 0
-        
         # Get all checkins
         cur.execute('''
             SELECT athlete_name, checkin_date, division, weight, waist, meals_compliant,
@@ -375,10 +371,6 @@ def dashboard():
         
         cur.execute("SELECT COUNT(*) FROM checkins WHERE status = 'needs-attention'")
         needs_attention = cur.fetchone()[0]
-        
-        cur.execute("SELECT AVG(CAST(energy AS REAL)) FROM checkins WHERE energy IS NOT NULL AND energy != ''")
-        result = cur.fetchone()
-        avg_energy = round(result[0], 1) if result and result[0] else 0
         
         cur.execute('''
             SELECT athlete_name, checkin_date, division, weight, waist, meals_compliant,
@@ -519,10 +511,6 @@ def dashboard():
             <div class="stat-card">
                 <div class="stat-value">{needs_attention}</div>
                 <div class="stat-label">Need Attention</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{avg_energy}</div>
-                <div class="stat-label">Avg Energy Level</div>
             </div>
         </div>
         <div class="athlete-grid">
