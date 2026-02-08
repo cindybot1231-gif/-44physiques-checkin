@@ -358,6 +358,215 @@
         
         .required { color: #791619; }
         
+        input:invalid, select:invalid, textarea:invalid {
+            border-color: #ff4444;
+        }
+        
+        input:focus:invalid, select:focus:invalid, textarea:focus:invalid {
+            border-color: #ff4444;
+            box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.2);
+        }
+        
+        .field-error {
+            color: #ff4444;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .form-group.has-error input,
+        .form-group.has-error select,
+        .form-group.has-error textarea {
+            border-color: #ff4444;
+        }
+        
+        .form-group.has-error .field-error {
+            display: block;
+        }
+        
+        .validation-summary {
+            background: #dc2626;
+            border: 2px solid #b91c1c;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .validation-summary.show {
+            display: block;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .validation-summary h3 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .validation-summary ul {
+            margin-left: 20px;
+            color: #fecaca;
+        }
+
+        .validation-summary li {
+            margin-bottom: 5px;
+        }
+
+        .fix-errors-btn {
+            background: #fff;
+            color: #dc2626;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .fix-errors-btn:hover {
+            background: #fecaca;
+            transform: translateY(-1px);
+        }
+
+        /* Sticky Validation Popup */
+        .sticky-popup {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #dc2626;
+            color: #fff;
+            padding: 15px 20px;
+            z-index: 1000;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        }
+
+        .sticky-popup.show {
+            transform: translateY(0);
+        }
+
+        .sticky-popup-content {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .sticky-popup-text {
+            flex: 1;
+        }
+
+        .sticky-popup-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .sticky-popup-list {
+            font-size: 0.9rem;
+            color: #fecaca;
+            line-height: 1.5;
+        }
+
+        .sticky-popup-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .sticky-popup-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .sticky-popup-fix {
+            background: #fff;
+            color: #dc2626;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .sticky-popup-fix:hover {
+            background: #fecaca;
+        }
+
+        @media (max-width: 600px) {
+            .sticky-popup-content {
+                flex-wrap: wrap;
+            }
+            .sticky-popup-fix {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+
+        /* Inline Error Styles */
+        .field-error-inline {
+            color: #ff4444;
+            font-size: 0.875rem;
+            margin-top: 6px;
+            display: none;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+        }
+
+        .field-error-inline::before {
+            content: "⚠️";
+        }
+
+        .form-group.has-error .field-error-inline {
+            display: flex;
+        }
+
+        .form-group.has-error input,
+        .form-group.has-error select,
+        .form-group.has-error textarea {
+            border-color: #ff4444;
+            background-color: rgba(255, 68, 68, 0.05);
+        }
+
+        .form-group.has-error input:focus,
+        .form-group.has-error select:focus,
+        .form-group.has-error textarea:focus {
+            border-color: #ff4444;
+            box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.2);
+        }
+
+        /* Smooth scroll padding for fixed elements */
+        html {
+            scroll-padding-bottom: 100px;
+        }
+        
         .hint {
             color: #888;
             font-size: 0.85rem;
@@ -392,6 +601,12 @@
             <span style="font-size: 0.9rem;">Coach David will review your check-in within 24 hours.</span>
         </div>
         
+        <div class="validation-summary" id="validationSummary">
+            <h3>⚠️ Please fill in all required fields:</h3>
+            <ul id="validationList"></ul>
+            <button type="button" class="fix-errors-btn" onclick="scrollToFirstError()">FIX ERRORS</button>
+        </div>
+        
         <div class="timeline-notice">
             <strong>📋 Check-in Timeline:</strong> Coach David reviews all submissions within 24 hours. You'll receive feedback via your preferred contact method.
         </div>
@@ -401,13 +616,15 @@
             <div class="form-section">
                 <h2 class="section-title">Athlete Info</h2>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field="client_name">
                         <label>Name <span class="required">*</span></label>
                         <input type="text" name="client_name" required placeholder="Your full name">
+                        <div class="field-error-inline">This field is required</div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field="checkin_date">
                         <label>Check-in Date <span class="required">*</span></label>
-                        <input type="date" name="checkin_date" required>
+                        <input type="date" name="checkin_date" id="checkinDate" required pattern="\d{4}-\d{2}-\d{2}">
+                        <div class="field-error-inline">This field is required</div>
                     </div>
                 </div>
             </div>
@@ -416,10 +633,11 @@
             <div class="form-section">
                 <h2 class="section-title">Body Stats</h2>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field="weight">
                         <label>Weight (lbs) <span class="required">*</span></label>
                         <input type="number" name="weight" step="0.1" required placeholder="Morning weight">
                         <div class="hint">Morning, post-bathroom, before eating</div>
+                        <div class="field-error-inline">This field is required</div>
                     </div>
                     <div class="form-group">
                         <label>Waist (inches)</label>
@@ -433,7 +651,7 @@
             <div class="form-section">
                 <h2 class="section-title">Nutrition Compliance</h2>
                 
-                <div class="form-group">
+                <div class="form-group" data-field="meals_compliant">
                     <label>Meals on track this week? <span class="required">*</span></label>
                     <select name="meals_compliant" id="mealsCompliant" onchange="toggleMealDetails()" required>
                         <option value="">Select...</option>
@@ -442,11 +660,13 @@
                         <option value="80">80% - A few misses</option>
                         <option value="below">Below 80% - Off plan</option>
                     </select>
+                    <div class="field-error-inline">This field is required</div>
                 </div>
-                
-                <div class="form-group" id="offPlanDetails" style="display: none;">
+
+                <div class="form-group" id="offPlanDetails" style="display: none;" data-field="off_plan_foods">
                     <label>What did you eat that wasn't on your plan? <span class="required">*</span></label>
                     <textarea name="off_plan_foods" rows="4" placeholder="Be specific - what foods, when, how much? This helps us adjust your plan, not judge you."></textarea>
+                    <div class="field-error-inline">This field is required when meals are less than 100%</div>
                 </div>
                 
                 <div class="form-group">
@@ -530,7 +750,7 @@
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" data-field="energy">
                     <label>Energy level (1-10) <span class="required">*</span></label>
                     <div class="slider-container">
                         <input type="range" name="energy" min="1" max="10" value="5" id="energySlider" oninput="document.getElementById('energyValue').textContent = this.value" required>
@@ -540,6 +760,7 @@
                             <span>Energized</span>
                         </div>
                     </div>
+                    <div class="field-error-inline">This field is required</div>
                 </div>
                 
                 <div class="form-group">
@@ -592,7 +813,7 @@
             <div class="form-section">
                 <h2 class="section-title">Progress Photos <span class="required">*</span></h2>
                 
-                <div class="form-group">
+                <div class="form-group" data-field="division">
                     <label>
                         Select Your Division <span class="required">*</span>
                         <button type="button" class="tips-btn" onclick="showPhotoTips()">?</button>
@@ -609,6 +830,7 @@
                         <option value="mens_bodybuilding">Men's Bodybuilding</option>
                         <option value="lifestyle">Lifestyle (Relaxed poses only)</option>
                     </select>
+                    <div class="field-error-inline">This field is required</div>
                 </div>
                 
                 <!-- RELAXED POSES - ALL DIVISIONS -->
@@ -1126,6 +1348,18 @@
             <button type="button" class="submit-btn" onclick="scrollToReview()">REVIEW & SUBMIT CHECK-IN</button>
         </div>
     </div>
+
+    <!-- Sticky Validation Popup -->
+    <div class="sticky-popup" id="stickyPopup">
+        <div class="sticky-popup-content">
+            <div class="sticky-popup-text">
+                <div class="sticky-popup-title">⚠️ Please fill in required fields</div>
+                <div class="sticky-popup-list" id="stickyPopupList"></div>
+            </div>
+            <button class="sticky-popup-close" onclick="hideStickyPopup()" aria-label="Dismiss">×</button>
+            <button class="sticky-popup-fix" onclick="scrollToFirstError()">FIX ERRORS</button>
+        </div>
+    </div>
     
     <!-- Photo Tips Modal -->
     <div class="modal" id="tipsModal">
@@ -1151,11 +1385,15 @@
         function toggleMealDetails() {
             const select = document.getElementById('mealsCompliant');
             const details = document.getElementById('offPlanDetails');
+            const textarea = details.querySelector('textarea[name="off_plan_foods"]');
             // Show if NOT 100% compliant
             if (select.value !== '100' && select.value !== '') {
                 details.style.display = 'block';
+                textarea.setAttribute('required', 'required');
             } else {
                 details.style.display = 'none';
+                textarea.removeAttribute('required');
+                textarea.value = ''; // Clear any value when hidden
             }
         }
         
@@ -1292,11 +1530,28 @@
         }
         
         // Auto-save on input changes
-        form.addEventListener('input', saveDraft);
+        form.addEventListener('input', function(e) {
+            saveDraft();
+            // Clear error state when user starts typing
+            const formGroup = e.target.closest('.form-group');
+            if (formGroup && formGroup.classList.contains('has-error') && e.target.value.trim()) {
+                formGroup.classList.remove('has-error');
+            }
+            // Update sticky popup if all errors are fixed
+            updateStickyPopup();
+        });
         form.addEventListener('change', saveDraft);
         
         // Load draft on page load
-        window.addEventListener('load', loadDraft);
+        window.addEventListener('load', function() {
+            // Set today's date as default if no draft
+            const dateField = document.getElementById('checkinDate');
+            if (!localStorage.getItem(STORAGE_KEY) || !dateField.value) {
+                const today = new Date().toISOString().split('T')[0];
+                dateField.value = today;
+            }
+            loadDraft();
+        });
         
         // Clear draft on successful submit
         function clearDraft() {
@@ -1416,11 +1671,137 @@
             if (e.target === this) closePhotoTips();
         });
 
+        // Validation state tracking
+        let firstErrorField = null;
+
+        // Show sticky popup with missing fields
+        function showStickyPopup(missingFields) {
+            const popup = document.getElementById('stickyPopup');
+            const list = document.getElementById('stickyPopupList');
+            list.textContent = missingFields.map(f => f.label).join(', ');
+            popup.classList.add('show');
+        }
+
+        function hideStickyPopup() {
+            document.getElementById('stickyPopup').classList.remove('show');
+        }
+
+        // Scroll to first error field
+        function scrollToFirstError() {
+            hideStickyPopup();
+            const firstError = document.querySelector('.form-group.has-error');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const input = firstError.querySelector('input, select, textarea');
+                if (input) {
+                    input.focus();
+                }
+            }
+        }
+
+        // Real-time validation - clear errors when user types
+        function setupRealTimeValidation() {
+            const requiredInputs = form.querySelectorAll('input[required], select[required], textarea[required]');
+
+            requiredInputs.forEach(input => {
+                // Clear error on input
+                input.addEventListener('input', function() {
+                    const formGroup = this.closest('.form-group');
+                    if (formGroup && this.value.trim()) {
+                        formGroup.classList.remove('has-error');
+                        updateStickyPopup();
+                    }
+                });
+
+                // Validate on blur if field was touched
+                input.addEventListener('blur', function() {
+                    const formGroup = this.closest('.form-group');
+                    if (formGroup && !this.value.trim()) {
+                        formGroup.classList.add('has-error');
+                    }
+                });
+
+                // Clear error when user starts typing
+                input.addEventListener('change', function() {
+                    const formGroup = this.closest('.form-group');
+                    if (formGroup && this.value.trim()) {
+                        formGroup.classList.remove('has-error');
+                        updateStickyPopup();
+                    }
+                });
+            });
+        }
+
+        // Update sticky popup when errors are fixed
+        function updateStickyPopup() {
+            const visibleErrors = document.querySelectorAll('.form-group.has-error');
+            if (visibleErrors.length === 0) {
+                hideStickyPopup();
+                document.getElementById('validationSummary').classList.remove('show');
+            }
+        }
+
+        // Initialize real-time validation
+        setupRealTimeValidation();
+
         // Review screen
         function showReview() {
             const reviewSection = document.getElementById('reviewSection');
             const reviewContent = document.getElementById('reviewContent');
             const formData = new FormData(form);
+
+            // Clear previous errors
+            document.querySelectorAll('.form-group.has-error').forEach(el => el.classList.remove('has-error'));
+            document.getElementById('validationSummary').classList.remove('show');
+            hideStickyPopup();
+
+            // Validate required fields
+            const requiredFields = [
+                { name: 'client_name', label: 'Name' },
+                { name: 'checkin_date', label: 'Check-in Date' },
+                { name: 'weight', label: 'Weight' },
+                { name: 'meals_compliant', label: 'Meal Compliance' },
+                { name: 'energy', label: 'Energy Level' },
+                { name: 'division', label: 'Division' }
+            ];
+
+            // Also check off_plan_foods if meals < 100%
+            const mealsCompliant = document.getElementById('mealsCompliant').value;
+            if (mealsCompliant !== '100' && mealsCompliant !== '') {
+                requiredFields.push({ name: 'off_plan_foods', label: 'Off-Plan Foods' });
+            }
+
+            const missingFields = [];
+            firstErrorField = null;
+
+            requiredFields.forEach(field => {
+                const input = form.elements[field.name];
+                if (!input || !input.value.trim()) {
+                    missingFields.push(field);
+                    // Highlight the field
+                    const formGroup = input?.closest('.form-group');
+                    if (formGroup) {
+                        formGroup.classList.add('has-error');
+                        if (!firstErrorField) {
+                            firstErrorField = formGroup;
+                        }
+                    }
+                }
+            });
+
+            if (missingFields.length > 0) {
+                // Show validation summary
+                const summary = document.getElementById('validationSummary');
+                const list = document.getElementById('validationList');
+                list.innerHTML = missingFields.map(f => `<li>${f.label}</li>`).join('');
+                summary.classList.add('show');
+                summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Show sticky popup
+                showStickyPopup(missingFields);
+
+                return;
+            }
             
             let html = '';
             
@@ -1495,21 +1876,38 @@
         document.getElementById('checkinForm').onsubmit = function(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
+            const form = this;
+            
+            // Double-check validation before submitting
+            if (!form.checkValidity()) {
+                // Trigger native validation UI
+                form.reportValidity();
+                return;
+            }
+            
             btn.disabled = true;
             btn.textContent = 'SUBMITTING...';
             
             fetch('/submit-checkin', {
                 method: 'POST',
-                body: new FormData(this)
+                body: new FormData(form)
             })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) {
+                    throw new Error('Server returned ' + r.status);
+                }
+                return r.json();
+            })
             .then(data => {
                 if (data.success) {
                     createConfetti();
                     document.getElementById('successMessage').style.display = 'block';
                     document.getElementById('reviewSection').style.display = 'none';
+                    document.getElementById('validationSummary').classList.remove('show');
                     clearDraft();
-                    this.reset();
+                    form.reset();
+                    // Reset date to today
+                    document.getElementById('checkinDate').value = new Date().toISOString().split('T')[0];
                     document.querySelectorAll('.file-name').forEach(el => el.textContent = '');
                     document.querySelectorAll('.photo-preview').forEach(el => {
                         el.style.display = 'none';
@@ -1524,11 +1922,12 @@
                         document.getElementById('successMessage').style.display = 'none';
                     }, 5000);
                 } else {
-                    alert('Error: ' + (data.error || 'Failed'));
+                    alert('Error: ' + (data.error || 'Submission failed. Please try again.'));
                 }
             })
             .catch(err => {
-                alert('Error: ' + err);
+                console.error('Submission error:', err);
+                alert('Error submitting check-in: ' + err.message + '\n\nPlease check your connection and try again.');
             })
             .finally(() => {
                 btn.disabled = false;
