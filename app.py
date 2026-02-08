@@ -146,10 +146,16 @@ def send_checkin_email(checkin_data, photos, video_path):
     
     def send_email_async():
         try:
+            print("Starting email send process...")
+            
             # Get credentials from environment
             smtp_user = os.environ.get('SMTP_USER', 'cindybot123125@outlook.com')
             smtp_pass = os.environ.get('SMTP_PASSWORD', '')
             coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
+            
+            print(f"SMTP_USER: {smtp_user}")
+            print(f"COACH_EMAIL: {coach_email}")
+            print(f"SMTP_PASSWORD set: {'Yes' if smtp_pass else 'No'}")
             
             if not smtp_pass:
                 print("SMTP password not configured - skipping email")
@@ -236,15 +242,19 @@ def send_checkin_email(checkin_data, photos, video_path):
             server.sendmail(smtp_user, coach_email, msg.as_string())
             server.quit()
             
-            print(f"Email sent to {coach_email} via Outlook")
+            print(f"Email sent successfully to {coach_email} via Outlook")
             
         except Exception as e:
             print(f"Error sending email: {e}")
+            import traceback
+            traceback.print_exc()
     
     # Start email in background thread
+    print("Starting email thread...")
     email_thread = threading.Thread(target=send_email_async)
     email_thread.daemon = True
     email_thread.start()
+    print("Email thread started")
 
 
 def sanitize_folder_name(name):
