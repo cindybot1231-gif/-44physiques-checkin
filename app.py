@@ -142,15 +142,114 @@ def login_required(f):
 
 def send_checkin_email(checkin_data, photos, video_path):
     """Send email notification to David when athlete submits check-in using Outlook SMTP"""
-    try:
-        # Get credentials from environment
-        smtp_user = os.environ.get('SMTP_USER', 'cindybot123125@outlook.com')
-        smtp_pass = os.environ.get('SMTP_PASSWORD', '')
-        coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
-        
-        if not smtp_pass:
-            print("SMTP password not configured - skipping email")
-            return
+    import threading
+    
+    def send_email_async():
+        try:
+            # Get credentials from environment
+            smtp_user = os.environ.get('SMTP_USER', 'cindybot123125@outlook.com')
+            smtp_pass = os.environ.get('SMTP_PASSWORD', '')
+            coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
+            
+            if not smtp_pass:
+                print("SMTP password not configured - skipping email")
+                return
+            
+            # Build email content
+            subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
+            
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background: #111; border: 2px solid #791619; border-radius: 12px; padding: 30px;">
+                    <h1 style="color: #791619; text-align: center; margin-bottom: 30px;">44 PHYSIQUES</h1>
+                    <h2 style="color: #fff; border-bottom: 2px solid #791619; padding-bottom: 10px;">New Athlete Check-in</h2>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Athlete Information</h3>
+                        <p><strong>Name:</strong> {checkin_data['athlete_name']}</p>
+                        <p><strong>Date:</strong> {checkin_data['checkin_date']}</p>
+                        <p><strong>Division:</strong> {checkin_data.get('division', 'N/A')}</p>
+                    </div>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Body Stats</h3>
+                        <p><strong>Weight:</strong> {checkin_data.get('weight', 'N/A')} lbs</p>
+                        <p><strong>Waist:</strong> {checkin_data.get('waist', 'N/A')}"</p>
+                    </div>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Nutrition & Training</h3>
+                        <p><strong>Meal Compliance:</strong> {checkin_data.get('meals_compliant', 'N/A')}%</p>
+                        <p><strong>Water Intake:</strong> {checkin_data.get('water_intake', 'N/A')} gallons</p>
+                        <p><strong>Hunger Level:</strong> {checkin_data.get('hunger', 'N/A')}/10</p>
+                        <p><strong>Weight Workouts:</strong> {checkin_data.get('weight_workouts', '0')}</p>
+                        <p><strong>Cardio Sessions:</strong> {checkin_data.get('cardio_sessions', '0')}</p>
+                        <p><strong>Strength Trend:</strong> {checkin_data.get('strength_trend', 'N/A')}</p>
+                    </div>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Recovery</h3>
+                        <p><strong>Sleep:</strong> {checkin_data.get('sleep_hours', 'N/A')} hours ({checkin_data.get('sleep_quality', 'N/A')})</p>
+                        <p><strong>Energy Level:</strong> {checkin_data.get('energy', 'N/A')}/10</p>
+                        <p><strong>Stress Level:</strong> {checkin_data.get('stress_level', 'N/A')}</p>
+                        <p><strong>Mood:</strong> {checkin_data.get('mood', 'N/A')}</p>
+                    </div>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Digestion</h3>
+                        <p><strong>Bloating/GI:</strong> {checkin_data.get('digestion', 'N/A')}</p>
+                        <p><strong>Regularity:</strong> {checkin_data.get('regularity', 'N/A')}</p>
+                    </div>
+                    
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="color: #791619; margin-bottom: 15px;">Files</h3>
+                        <p><strong>Photos Uploaded:</strong> {len(photos)}</p>
+                        <p><strong>Video Uploaded:</strong> {'Yes' if video_path else 'No'}</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px; padding: 20px; background: #791619; border-radius: 8px;">
+                        <a href="https://44physiques-checkin.onrender.com/dashboard" style="color: #fff; text-decoration: none; font-weight: bold; font-size: 1.1rem;">VIEW FULL CHECK-IN IN DASHBOARD</a>
+                    </div>
+                    
+                    <p style="text-align: center; color: #888; margin-top: 30px; font-size: 0.9rem;">
+                        44 Physiques Coaching System<br>
+                        "Chase the Physique"
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Create email
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = smtp_user
+            msg['To'] = coach_email
+            
+            msg.attach(MIMEText(html_content, 'html'))
+            
+            # Send via Outlook SMTP
+            server = smtplib.SMTP('smtp.office365.com', 587)
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, coach_email, msg.as_string())
+            server.quit()
+            
+            print(f"Email sent to {coach_email} via Outlook")
+            
+        except Exception as e:
+            print(f"Error sending email: {e}")
+    
+    # Start email in background thread
+    email_thread = threading.Thread(target=send_email_async)
+    email_thread.daemon = True
+    email_thread.start()
+
+
+def sanitize_folder_name(name):
+                print("SMTP password not configured - skipping email")
+                return
         
         # Build email content
         subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
@@ -237,13 +336,7 @@ def send_checkin_email(checkin_data, photos, video_path):
         server.sendmail(smtp_user, coach_email, msg.as_string())
         server.quit()
         
-        print(f"Email sent to {coach_email} via Outlook")
-        
-    except Exception as e:
-        print(f"Error sending email: {e}")
-
-
-def sanitize_folder_name(name):
+}
     """Convert name to safe folder name"""
     safe = re.sub(r'[^\w\s-]', '', name)
     safe = safe.replace(' ', '_')
