@@ -139,116 +139,110 @@ def login_required(f):
 
 def send_checkin_email(checkin_data, photos, video_path):
     """Send email notification to David when athlete submits check-in using Resend"""
-    import threading
-    
-    def send_email_async():
-        try:
-            print("Starting email send process via Resend...")
-            
-            # Get credentials from environment
-            resend_api_key = os.environ.get('RESEND_API_KEY', '')
-            from_email = os.environ.get('FROM_EMAIL', 'onboarding@resend.dev')
-            coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
-            
-            print(f"FROM_EMAIL: {from_email}")
-            print(f"COACH_EMAIL: {coach_email}")
-            print(f"RESEND_API_KEY set: {'Yes' if resend_api_key else 'No'}")
-            
-            if not resend_api_key:
-                print("RESEND_API_KEY not configured - skipping email")
-                return
-            
-            # Set Resend API key
-            resend.api_key = resend_api_key
-            
-            # Build email content
-            subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
-            
-            html_content = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; padding: 20px;">
-                <div style="max-width: 600px; margin: 0 auto; background: #111; border: 2px solid #791619; border-radius: 12px; padding: 30px;">
-                    <h1 style="color: #791619; text-align: center; margin-bottom: 30px;">44 PHYSIQUES</h1>
-                    <h2 style="color: #fff; border-bottom: 2px solid #791619; padding-bottom: 10px;">New Athlete Check-in</h2>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Athlete Information</h3>
-                        <p><strong>Name:</strong> {checkin_data['athlete_name']}</p>
-                        <p><strong>Date:</strong> {checkin_data['checkin_date']}</p>
-                        <p><strong>Division:</strong> {checkin_data.get('division', 'N/A')}</p>
-                    </div>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Body Stats</h3>
-                        <p><strong>Weight:</strong> {checkin_data.get('weight', 'N/A')} lbs</p>
-                        <p><strong>Waist:</strong> {checkin_data.get('waist', 'N/A')}"</p>
-                    </div>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Nutrition & Training</h3>
-                        <p><strong>Meal Compliance:</strong> {checkin_data.get('meals_compliant', 'N/A')}%</p>
-                        <p><strong>Water Intake:</strong> {checkin_data.get('water_intake', 'N/A')} gallons</p>
-                        <p><strong>Hunger Level:</strong> {checkin_data.get('hunger', 'N/A')}/10</p>
-                        <p><strong>Weight Workouts:</strong> {checkin_data.get('weight_workouts', '0')}</p>
-                        <p><strong>Cardio Sessions:</strong> {checkin_data.get('cardio_sessions', '0')}</p>
-                        <p><strong>Strength Trend:</strong> {checkin_data.get('strength_trend', 'N/A')}</p>
-                    </div>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Recovery</h3>
-                        <p><strong>Sleep:</strong> {checkin_data.get('sleep_hours', 'N/A')} hours ({checkin_data.get('sleep_quality', 'N/A')})</p>
-                        <p><strong>Energy Level:</strong> {checkin_data.get('energy', 'N/A')}/10</p>
-                        <p><strong>Stress Level:</strong> {checkin_data.get('stress_level', 'N/A')}</p>
-                        <p><strong>Mood:</strong> {checkin_data.get('mood', 'N/A')}</p>
-                    </div>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Digestion</h3>
-                        <p><strong>Bloating/GI:</strong> {checkin_data.get('digestion', 'N/A')}</p>
-                        <p><strong>Regularity:</strong> {checkin_data.get('regularity', 'N/A')}</p>
-                    </div>
-                    
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="color: #791619; margin-bottom: 15px;">Files</h3>
-                        <p><strong>Photos Uploaded:</strong> {len(photos)}</p>
-                        <p><strong>Video Uploaded:</strong> {'Yes' if video_path else 'No'}</p>
-                    </div>
-                    
-                    <div style="text-align: center; margin-top: 30px; padding: 20px; background: #791619; border-radius: 8px;">
-                        <a href="https://44physiques-checkin.onrender.com/dashboard" style="color: #fff; text-decoration: none; font-weight: bold; font-size: 1.1rem;">VIEW FULL CHECK-IN IN DASHBOARD</a>
-                    </div>
-                    
-                    <p style="text-align: center; color: #888; margin-top: 30px; font-size: 0.9rem;">
-                        44 Physiques Coaching System<br>
-                        "Chase the Physique"
-                    </p>
+    try:
+        print("Starting email send process via Resend...")
+        
+        # Get credentials from environment
+        resend_api_key = os.environ.get('RESEND_API_KEY', '')
+        from_email = os.environ.get('FROM_EMAIL', 'onboarding@resend.dev')
+        coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
+        
+        print(f"FROM_EMAIL: {from_email}")
+        print(f"COACH_EMAIL: {coach_email}")
+        print(f"RESEND_API_KEY set: {'Yes' if resend_api_key else 'No'}")
+        
+        if not resend_api_key:
+            print("RESEND_API_KEY not configured - skipping email")
+            return
+        
+        if not coach_email:
+            print("COACH_EMAIL not configured - skipping email")
+            return
+        
+        # Set Resend API key
+        resend.api_key = resend_api_key
+        
+        # Build email content
+        subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #111; border: 2px solid #791619; border-radius: 12px; padding: 30px;">
+                <h1 style="color: #791619; text-align: center; margin-bottom: 30px;">44 PHYSIQUES</h1>
+                <h2 style="color: #fff; border-bottom: 2px solid #791619; padding-bottom: 10px;">New Athlete Check-in</h2>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Athlete Information</h3>
+                    <p><strong>Name:</strong> {checkin_data['athlete_name']}</p>
+                    <p><strong>Date:</strong> {checkin_data['checkin_date']}</p>
+                    <p><strong>Division:</strong> {checkin_data.get('division', 'N/A')}</p>
                 </div>
-            </body>
-            </html>
-            """
-            
-            # Send email via Resend
-            response = resend.Emails.send({
-                "from": from_email,
-                "to": coach_email,
-                "subject": subject,
-                "html": html_content
-            })
-            
-            print(f"Email sent successfully to {coach_email} via Resend")
-            print(f"Resend response: {response}")
-            
-        except Exception as e:
-            print(f"Error sending email via Resend: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Start email in background thread
-    print("Starting email thread...")
-    email_thread = threading.Thread(target=send_email_async)
-    email_thread.daemon = True
-    email_thread.start()
-    print("Email thread started")
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Body Stats</h3>
+                    <p><strong>Weight:</strong> {checkin_data.get('weight', 'N/A')} lbs</p>
+                    <p><strong>Waist:</strong> {checkin_data.get('waist', 'N/A')}"</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Nutrition & Training</h3>
+                    <p><strong>Meal Compliance:</strong> {checkin_data.get('meals_compliant', 'N/A')}%</p>
+                    <p><strong>Water Intake:</strong> {checkin_data.get('water_intake', 'N/A')} gallons</p>
+                    <p><strong>Hunger Level:</strong> {checkin_data.get('hunger', 'N/A')}/10</p>
+                    <p><strong>Weight Workouts:</strong> {checkin_data.get('weight_workouts', '0')}</p>
+                    <p><strong>Cardio Sessions:</strong> {checkin_data.get('cardio_sessions', '0')}</p>
+                    <p><strong>Strength Trend:</strong> {checkin_data.get('strength_trend', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Recovery</h3>
+                    <p><strong>Sleep:</strong> {checkin_data.get('sleep_hours', 'N/A')} hours ({checkin_data.get('sleep_quality', 'N/A')})</p>
+                    <p><strong>Energy Level:</strong> {checkin_data.get('energy', 'N/A')}/10</p>
+                    <p><strong>Stress Level:</strong> {checkin_data.get('stress_level', 'N/A')}</p>
+                    <p><strong>Mood:</strong> {checkin_data.get('mood', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Digestion</h3>
+                    <p><strong>Bloating/GI:</strong> {checkin_data.get('digestion', 'N/A')}</p>
+                    <p><strong>Regularity:</strong> {checkin_data.get('regularity', 'N/A')}</p>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #791619; margin-bottom: 15px;">Files</h3>
+                    <p><strong>Photos Uploaded:</strong> {len(photos)}</p>
+                    <p><strong>Video Uploaded:</strong> {'Yes' if video_path else 'No'}</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #791619; border-radius: 8px;">
+                    <a href="https://44physiques-checkin.onrender.com/dashboard" style="color: #fff; text-decoration: none; font-weight: bold; font-size: 1.1rem;">VIEW FULL CHECK-IN IN DASHBOARD</a>
+                </div>
+                
+                <p style="text-align: center; color: #888; margin-top: 30px; font-size: 0.9rem;">
+                    44 Physiques Coaching System<br>
+                    "Chase the Physique"
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Send email via Resend
+        response = resend.Emails.send({
+            "from": from_email,
+            "to": coach_email,
+            "subject": subject,
+            "html": html_content
+        })
+        
+        print(f"Email sent successfully to {coach_email} via Resend")
+        print(f"Resend response: {response}")
+        
+    except Exception as e:
+        print(f"Error sending email via Resend: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def sanitize_folder_name(name):
