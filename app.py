@@ -147,7 +147,7 @@ def send_checkin_email(checkin_data, photos, video_path):
             
             # Get credentials from environment
             resend_api_key = os.environ.get('RESEND_API_KEY', '')
-            from_email = os.environ.get('FROM_EMAIL', 'checkins@44physiques.com')
+            from_email = os.environ.get('FROM_EMAIL', 'onboarding@resend.dev')
             coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
             
             print(f"FROM_EMAIL: {from_email}")
