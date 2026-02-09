@@ -14,10 +14,7 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 import psycopg2
 from urllib.parse import urlparse
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import base64
+import resend
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '44physiques_secret_key_2026')
@@ -141,25 +138,28 @@ def login_required(f):
     return decorated_function
 
 def send_checkin_email(checkin_data, photos, video_path):
-    """Send email notification to David when athlete submits check-in using Outlook SMTP"""
+    """Send email notification to David when athlete submits check-in using Resend"""
     import threading
     
     def send_email_async():
         try:
-            print("Starting email send process...")
+            print("Starting email send process via Resend...")
             
             # Get credentials from environment
-            smtp_user = os.environ.get('SMTP_USER', 'cindybot123125@outlook.com')
-            smtp_pass = os.environ.get('SMTP_PASSWORD', '')
+            resend_api_key = os.environ.get('RESEND_API_KEY', '')
+            from_email = os.environ.get('FROM_EMAIL', 'checkins@44physiques.com')
             coach_email = os.environ.get('COACH_EMAIL', 'david@44physiques.com')
             
-            print(f"SMTP_USER: {smtp_user}")
+            print(f"FROM_EMAIL: {from_email}")
             print(f"COACH_EMAIL: {coach_email}")
-            print(f"SMTP_PASSWORD set: {'Yes' if smtp_pass else 'No'}")
+            print(f"RESEND_API_KEY set: {'Yes' if resend_api_key else 'No'}")
             
-            if not smtp_pass:
-                print("SMTP password not configured - skipping email")
+            if not resend_api_key:
+                print("RESEND_API_KEY not configured - skipping email")
                 return
+            
+            # Set Resend API key
+            resend.api_key = resend_api_key
             
             # Build email content
             subject = f"New Check-in: {checkin_data['athlete_name']} - {checkin_data['checkin_date']}"
@@ -227,25 +227,19 @@ def send_checkin_email(checkin_data, photos, video_path):
             </html>
             """
             
-            # Create email
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = smtp_user
-            msg['To'] = coach_email
+            # Send email via Resend
+            response = resend.Emails.send({
+                "from": from_email,
+                "to": coach_email,
+                "subject": subject,
+                "html": html_content
+            })
             
-            msg.attach(MIMEText(html_content, 'html'))
-            
-            # Send via Outlook SMTP
-            server = smtplib.SMTP('smtp.office365.com', 587)
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, coach_email, msg.as_string())
-            server.quit()
-            
-            print(f"Email sent successfully to {coach_email} via Outlook")
+            print(f"Email sent successfully to {coach_email} via Resend")
+            print(f"Resend response: {response}")
             
         except Exception as e:
-            print(f"Error sending email: {e}")
+            print(f"Error sending email via Resend: {e}")
             import traceback
             traceback.print_exc()
     
