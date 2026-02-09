@@ -229,9 +229,19 @@ def send_checkin_email(checkin_data, photos, video_path):
         """
         
         # Send email via Resend
+        # Note: In test mode, Resend only allows sending to the account owner email
+        # We send to both the coach and the verified owner email as a workaround
+        to_emails = [coach_email]
+        
+        # Add the verified account email if it's different from coach
+        verified_email = "cindybot1231@gmail.com"
+        if verified_email not in to_emails:
+            to_emails.append(verified_email)
+            print(f"Added verified email {verified_email} to recipient list (test mode requirement)")
+        
         response = resend.Emails.send({
             "from": from_email,
-            "to": coach_email,
+            "to": to_emails,
             "subject": subject,
             "html": html_content
         })
